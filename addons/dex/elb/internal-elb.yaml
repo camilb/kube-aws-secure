@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: dex
+  namespace: kube-system
+  labels:
+    run: dex
+  annotations:
+     service.beta.kubernetes.io/aws-load-balancer-ssl-cert: "arn:aws:acm:us-east-1:xxxxxxxxxxx:certificate/xxxxx-xxxx-xxxx-xxxx-xxxxxxxxxx"
+     service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
+     service.beta.kubernetes.io/aws-load-balancer-internal: 0.0.0.0/0
+     external-dns.alpha.kubernetes.io/hostname: dex.example.com.
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 443
+    targetPort: 5556
+    protocol: TCP
+  selector:
+    app: dex
