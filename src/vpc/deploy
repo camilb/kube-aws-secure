@@ -1,0 +1,29 @@
+#!/bin/sh
+set -e
+
+ROLE="kube-aws-vpc"
+STACK_NAME="stack_name"
+STACK_FILE="vpc"
+SERVICE_NAME_PREFIX="k8s"
+REGION="aws_region"
+KUBERNETES_CLUSTER="demokube" #if you change this value, please also change the clusterName value in cluster.yaml
+
+STACK_PARAMS="ParameterKey=ServiceNamePrefix,ParameterValue=${SERVICE_NAME_PREFIX} ParameterKey=Role,ParameterValue=${ROLE} ParameterKey=KubernetesCluster,ParameterValue=${KUBERNETES_CLUSTER}"
+STACK_TAGS="Key=Role,Value=${ROLE}"
+
+for TEMPLATE_FILE in *.yaml
+do
+    echo "### Validating -> ${TEMPLATE_FILE}"
+
+    aws cloudformation validate-template \
+            --template-body file://${TEMPLATE_FILE}
+
+    echo
+done
+
+aws --region $REGION cloudformation create-stack \
+    --stack-name $STACK_NAME \
+    --template-body file://./${TEMPLATE_FILE} \
+    --parameters ${STACK_PARAMS} \
+    --capabilities CAPABILITY_IAM \
+    --tags ${STACK_TAGS}

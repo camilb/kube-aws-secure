@@ -1,0 +1,28 @@
+#!/bin/sh
+set -e
+
+ROLE="k8s-iam"
+STACK_NAME="k8s-iam"
+STACK_FILE="iam"
+SERVICE_NAME_PREFIX="k8s"
+REGION="aws_region"
+
+STACK_PARAMS="ParameterKey=ServiceNamePrefix,ParameterValue=${SERVICE_NAME_PREFIX} ParameterKey=Role,ParameterValue=${ROLE}"
+STACK_TAGS="Key=Role,Value=${ROLE}"
+
+for TEMPLATE_FILE in *.yaml
+do
+    echo "### Validating -> ${TEMPLATE_FILE}"
+
+    aws cloudformation validate-template \
+            --template-body file://${TEMPLATE_FILE}
+
+    echo
+done
+
+aws --region $REGION cloudformation create-stack \
+    --stack-name $STACK_NAME \
+    --template-body file://./${TEMPLATE_FILE} \
+    --parameters ${STACK_PARAMS} \
+    --capabilities CAPABILITY_NAMED_IAM \
+    --tags ${STACK_TAGS}

@@ -1,0 +1,341 @@
+#!/bin/bash
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+ORANGE='\033[0;33m'
+BLUE='\033[0;34m'
+GREEN_PS3=$'\e[0;32m'
+
+#########################################################################################
+# check requirements
+#########################################################################################
+echo
+echo -e "${ORANGE}Checking requirements"
+tput sgr0
+echo
+#kube-aws
+if [[ "$(which kube-aws)" != "" ]] > /dev/null 2>&1; then
+  echo -e "kube-aws: ......... ${GREEN}OK"
+  tput sgr0
+  echo
+else
+  echo -e "${RED}Please install kube-aws and run this script again"
+  tput sgr0
+  echo
+  exit
+fi
+
+#kubectl
+if [[ "$(which kubectl)" != "" ]] > /dev/null 2>&1; then
+  echo -e "kubectl: .......... ${GREEN}OK"
+  tput sgr0
+  echo
+else
+  echo -e "${RED}Please install kubectl and run this script again"
+  tput sgr0
+  echo
+  exit
+fi
+
+#awscli
+if [[ "$(which aws)" != "" ]] > /dev/null 2>&1; then
+  echo -e "awscli: ........... ${GREEN}OK"
+  tput sgr0
+  echo
+else
+  echo -e "${RED}Please install awscli and run this script again"
+  tput sgr0
+  echo
+  exit
+fi
+
+#aws conig
+if [[ -f ~/.aws/config ]] > /dev/null 2>&1; then
+  echo -e "aws config: ....... ${GREEN}OK"
+  tput sgr0
+  echo
+else
+  echo -e "${RED}Please configure awscli using ${ORANGE}aws configure ${RED}and run this script again"
+  tput sgr0
+  echo
+  exit
+fi
+
+#copy source
+if [ -d "kube-aws" ] && [ -d "vpc" ] && [ -d "iam" ] && [ -d "addons" ]; then
+  true
+else
+  mkdir vpc kube-aws iam addons
+fi
+
+cp src/kube-aws/cluster.yaml kube-aws/
+cp src/vpc/* vpc/
+cp src/iam/* iam/
+cp -r src/addons/* addons
+
+#########################################################################################
+# setup
+#########################################################################################
+
+#aws profile
+PS3="${GREEN_PS3}Please select the AWS profile:"
+echo
+set -- $(cat ~/.aws/config | grep "\[" | tr -d '[]' | cut -d " " -f 2)
+select opt in "$@"
+do
+    case $opt in
+        $opt)
+            aws_profile="${opt}"
+            tput sgr0
+            echo "$aws_profile"
+            break
+            ;;
+        *) echo invalid option;;
+    esac
+done
+echo
+
+#aws region
+PS3="${GREEN_PS3}Please select the AWS Region:"
+echo
+set -- $(aws --profile $aws_profile ec2 describe-regions | jq -r '.Regions[] | .RegionName')
+select opt in "$@"
+do
+    case $opt in
+        $opt)
+            aws_region="$opt"
+            tput sgr0
+            echo "$aws_region"
+            break
+            ;;
+        *) echo invalid option;;
+    esac
+done
+echo
+
+#aws key pair
+PS3="${GREEN_PS3}Please select which key pair to use:"
+echo
+set -- $(aws --profile $aws_profile ec2 describe-key-pairs | jq -r '.KeyPairs[] | .KeyName')
+select opt in "$@"
+do
+    case $opt in
+        $opt)
+            key_name="$opt"
+            tput sgr0
+            echo "$key_name"
+            break
+            ;;
+        *) echo invalid option;;
+    esac
+done
+echo
+
+#aws domain name
+PS3="${GREEN_PS3}Please select which domain name to use:"
+echo
+set -- $(aws --profile $aws_profile route53 list-hosted-zones | jq -r '.HostedZones[].Name')
+select opt in "$@"
+do
+    case $opt in
+        $opt)
+            domain_name="${opt%.}"
+            tput sgr0
+            echo "$domain_name"
+            break
+            ;;
+        *) echo invalid option;;
+    esac
+done
+echo
+
+#aws hosted zone id
+hosted_zone_id=$(aws --profile $aws_profile route53 list-hosted-zones | jq -r '.HostedZones[] | select(.Name="'$domain_name'") | .Id' | cut -d "/" -f3)
+
+##set aws region
+sed -i -e 's,aws_region,'"$aws_region"',g' kube-aws/cluster.yaml
+sed -i -e 's,aws_region,'"$aws_region"',g' vpc/vpc.yaml
+sed -i -e 's,aws_region,'"$aws_region"',g' vpc/deploy
+sed -i -e 's,aws_region,'"$aws_region"',g' iam/iam.yaml
+sed -i -e 's,aws_region,'"$aws_region"',g' iam/deploy
+
+##set key pair
+sed -i -e 's,key_name,'"$key_name"',g' kube-aws/cluster.yaml
+
+##set hosted_zone_id
+sed -i -e 's,hosted_zone_id,'"$hosted_zone_id"',g' kube-aws/cluster.yaml
+sed -i -e 's,hosted_zone_id,'"$hosted_zone_id"',g' iam/iam.yaml
+
+##set domain_name
+sed -i -e 's,domain_name,'"$domain_name"',g' kube-aws/cluster.yaml
+sed -i -e 's,domain_name,'"$domain_name"',g' addons/external-dns/external-dns.yaml
+
+#clean sed generated files
+find . -name "*-e" -exec rm -rf {} \;
+
+#####################################################################################################
+# VPC stack
+#####################################################################################################
+
+#vpc stack name
+read -p "Set a name for the CloudFormation VPC stack: " stack_name
+echo
+
+if [[ "$(aws --profile $aws_profile cloudformation describe-stacks --stack-name=$stack_name | jq -r '.Stacks[].StackStatus')" != "CREATE_COMPLETE" ]] > /dev/null 2>&1; then
+  cd vpc
+  sed -i -e 's,stack_name,'"$stack_name"',g' deploy
+  echo -e "${BLUE}Creating CloudFormation VPC stack"
+  tput sgr0
+  echo
+
+  ./deploy
+
+  echo -e "${BLUE}Wait until the CloudFormation stack is created"
+  tput sgr0
+  echo
+
+  while [[ "$(aws --profile $aws_profile cloudformation describe-stacks --stack-name=$stack_name | jq -r '.Stacks[].StackStatus')" != "CREATE_COMPLETE" ]]
+    do sleep 2; printf ".";
+  done
+  echo
+  echo
+
+  echo -e "${BLUE}CloudFormation VPC stack successfully  created"
+  tput sgr0
+  echo
+  cd ../
+
+else
+  echo -e "${BLUE}Stack already exists, getting the outputs"
+  echo
+fi
+
+echo -e "${BLUE}Getting the CloudFormation stack outputs"
+tput sgr0
+echo
+
+#kms key
+KMS_KEY_ARN=$(aws --profile $aws_profile cloudformation describe-stacks --stack-name=$stack_name | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="KMSKeyArn") | .OutputValue')
+echo -e "${RED}KMS_KEY_ARN: ${GREEN}${KMS_KEY_ARN}"
+
+#vpc id
+VPC_ID=$(aws --profile $aws_profile cloudformation describe-stacks --stack-name=$stack_name | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="VpcId") | .OutputValue')
+echo -e "${RED}VPC_ID: ${GREEN}${VPC_ID}"
+
+#vpc cidr
+VPC_CIDR=$(aws --profile $aws_profile cloudformation describe-stacks --stack-name=$stack_name | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="CidrBlock") | .OutputValue')
+echo -e "${RED}VPC_CIDR: ${GREEN}${VPC_CIDR}"
+
+#route table id
+ROUTE_TABLE_ID=$(aws --profile $aws_profile cloudformation describe-stacks --stack-name=$stack_name | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="PrivateRouteTableId") | .OutputValue')
+echo -e "${RED}ROUTE_TABLE_ID: ${GREEN}${ROUTE_TABLE_ID}"
+
+#private subnet a
+PRIVATE_SUBNET_A=$(aws --profile $aws_profile cloudformation describe-stacks --stack-name=$stack_name | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="PrivateSubnetAId") | .OutputValue')
+echo -e "${RED}PRIVATE_SUBNET_A: ${GREEN}${PRIVATE_SUBNET_A}"
+
+#private subnet b
+PRIVATE_SUBNET_B=$(aws --profile $aws_profile cloudformation describe-stacks --stack-name=$stack_name | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="PrivateSubnetBId") | .OutputValue')
+echo -e "${RED}PRIVATE_SUBNET_B: ${GREEN}${PRIVATE_SUBNET_B}"
+
+#private subnet c
+PRIVATE_SUBNET_C=$(aws --profile $aws_profile cloudformation describe-stacks --stack-name=$stack_name | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="PrivateSubnetCId") | .OutputValue')
+echo -e "${RED}PRIVATE_SUBNET_C: ${GREEN}${PRIVATE_SUBNET_C}"
+tput sgr0
+
+#aws account id
+AWS_ACCOUNT_ID=$(aws --profile $aws_profile cloudformation describe-stacks --stack-name=$stack_name | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="KMSKeyArn") | .OutputValue' | cut -d ':' -f5 )
+echo -e "${RED}AWS_ACCOUNT_ID: ${GREEN}${AWS_ACCOUNT_ID}"
+tput sgr0
+
+#replace the values from the CloudFormation outputs
+##kms key arn
+sed -i -e 's,kms_key_arn,'"$KMS_KEY_ARN"',g' kube-aws/cluster.yaml
+
+## vpc id
+sed -i -e 's,vpc_id,'"$VPC_ID"',g' kube-aws/cluster.yaml
+
+## vpc CIDR
+sed -i -e 's,vpc_cidr,'"$VPC_CIDR"',g' kube-aws/cluster.yaml
+
+## route table id
+sed -i -e 's,route_table_id,'"$ROUTE_TABLE_ID"',g' kube-aws/cluster.yaml
+
+## private subnet a
+sed -i -e 's,private_subnet_a,'"$PRIVATE_SUBNET_A"',g' kube-aws/cluster.yaml
+
+## private subnet b
+sed -i -e 's,private_subnet_b,'"$PRIVATE_SUBNET_B"',g' kube-aws/cluster.yaml
+
+## private subnet c
+sed -i -e 's,private_subnet_c,'"$PRIVATE_SUBNET_C"',g' kube-aws/cluster.yaml
+
+## aws accont id
+sed -i -e 's,aws_account_id,'"$AWS_ACCOUNT_ID"',g' iam/iam.yaml
+
+#clean sed generated files
+find . -name "*-e" -exec rm -rf {} \;
+
+#####################################################################################################
+# kube-aws setup
+#####################################################################################################
+
+cd kube-aws
+
+#select the S3 bucket to use for deployment
+PS3="${GREEN_PS3}Please select which S3 bucket to use:"
+echo
+set -- $(aws --profile $aws_profile s3 ls | cut -d " " -f3)
+select opt in "$@"
+do
+    case $opt in
+        $opt)
+            bucket="${opt%.}"
+            tput sgr0
+            echo "$bucket"
+            break
+            ;;
+        *) echo invalid option;;
+    esac
+done
+echo
+
+#cluster.yaml config
+echo
+echo -e "${BLUE}Please make the desired changes in ${ORANGE}kube-aws/cluster.yaml ${BLUE}and press ENTER"
+tput sgr0
+read -p " [ENTER]: " cluster_yaml
+echo
+
+#generate credentials
+echo -e "${ORANGE}Generate credentials"
+tput sgr0
+kube-aws render credentials --generate-ca
+echo
+
+#render stack
+echo -e "${ORANGE}Render stack"
+tput sgr0
+kube-aws render stack
+echo
+
+#validate stack
+echo -e "${ORANGE}Validate stack"
+tput sgr0
+AWS_PROFILE=$aws_profile kube-aws validate --s3-uri s3://$bucket
+echo
+
+#export stack
+echo -e "${ORANGE}Export stack"
+tput sgr0
+AWS_PROFILE=$aws_profile kube-aws up --s3-uri s3://$bucket --export
+echo
+
+#deploy
+echo -e "${ORANGE}Deploy stack"
+tput sgr0
+AWS_PROFILE=$aws_profile kube-aws up --s3-uri s3://$bucket
+echo
+
+echo -e "${GREEN}Done"
+tput sgr0
