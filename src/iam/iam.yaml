@@ -1,0 +1,97 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: IAM [kube-aws-secure]
+
+Parameters:
+  Role:
+    Type: String
+  ServiceNamePrefix:
+    Type: String
+
+Resources:
+
+#route53-external-dns
+  K8sRoute53ExternalDns:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "ec2.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+          -
+            Effect: "Allow"
+            Principal:
+              AWS:
+                - "arn:aws:iam::aws_account_id:role/aws_region-workerMR"
+            Action:
+              - "sts:AssumeRole"
+      Path: "/"
+      RoleName: "k8s-route53-external-dns"
+      Policies:
+        -
+          PolicyName: "k8s-route53-external-dns"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              -
+                Effect: "Allow"
+                Action:
+                  - "route53:ListHostedZonesByName"
+                  - "route53:ListHostedZones"
+                  - "route53:ListResourceRecordSets"
+                  - "elasticloadbalancing:DescribeLoadBalancers"
+                Resource:
+                  - "*"
+              -
+                Effect: "Allow"
+                Action:
+                  - "route53:ChangeResourceRecordSets"
+                Resource:
+                  - "arn:aws:route53:::hostedzone/hosted_zone_id"
+
+#cloudwatchlogs
+  K8sFluentdCloudwatchLogs:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "ec2.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+          -
+            Effect: "Allow"
+            Principal:
+              AWS:
+                - "arn:aws:iam::aws_account_id:role/aws_region-workerMR"
+            Action:
+              - "sts:AssumeRole"
+      Path: "/"
+      RoleName: "k8s-fluentd-cloudwatch"
+      Policies:
+        -
+          PolicyName: "k8s-fluentd-cloudwatch"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              -
+                Effect: "Allow"
+                Action:
+                  - "logs:CreateLogGroup"
+                  - "logs:CreateLogStream"
+                  - "logs:PutLogEvents"
+                  - "logs:DescribeLogStreams"
+                  - "logs:describeLogGroups"
+                Resource:
+                  - "arn:aws:logs:*:*:*"
+
+# ------

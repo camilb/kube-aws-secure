@@ -1,0 +1,60 @@
+#!/bin/bash
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+ORANGE='\033[0;33m'
+BLUE='\033[0;34m'
+GREEN_PS3=$'\e[0;32m'
+
+#########################################################################################
+# external-dns
+#########################################################################################
+echo
+echo -e "${BLUE}Deploy external-dns?"
+tput sgr0
+read -p "Y/N [N]: " external_dns
+
+if [[ $external_dns =~ ^([yY][eE][sS]|[yY])$ ]]; then
+
+  kubectl apply -f external-dns/external-dns.yaml
+else
+  echo -e "Skipping"
+fi
+
+
+#########################################################################################
+# ingress
+#########################################################################################
+echo
+echo -e "${BLUE}Deploy nginx ingress controller?"
+tput sgr0
+read -p "Y/N [N]: " nginx_ingress
+
+if [[ $nginx_ingress =~ ^([yY][eE][sS]|[yY])$ ]]; then
+
+  kubectl apply -f ingress/nginx/rbac.yaml
+  kubectl apply -f ingress/nginx/nginx.lb.yaml
+
+else
+  echo -e "Skipping"
+fi
+
+#########################################################################################
+# kube-lego
+#########################################################################################
+echo
+echo -e "${BLUE}Deploy kube-lego?"
+tput sgr0
+read -p "Y/N [N]: " kube_lego
+
+if [[ $kube_lego =~ ^([yY][eE][sS]|[yY])$ ]]; then
+
+  kubectl apply -f kube-lego/rbac.yaml
+  kubectl apply -f kube-lego/kube-lego.yaml
+
+else
+  echo -e "Skipping"
+fi
+
+echo -e "${GREEN}Done"
+tput sgr0
