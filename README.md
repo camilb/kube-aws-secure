@@ -4,7 +4,7 @@ This repository contains an example of how to deploy a secure Kubernetes HA clus
 
 The fallowing setup use a base CloudFormation stack to configure Public and Private Subnets, IGW, NatGW, Route Tables and KMS. After the stack is created, the Kubernetes cluster is automatically deployed on top of it using `kube-aws`.
 
-[![asciicast](https://asciinema.org/a/SGX439buZQs3JrT7Qf65oC1Ed.png)](https://asciinema.org/a/SGX439buZQs3JrT7Qf65oC1Ed)
+[![asciicast](https://asciinema.org/a/145270.png)](https://asciinema.org/a/145270)
 
 **Features:**
 
