@@ -1180,11 +1180,13 @@ addons:
 # Experimental features will change in backward-incompatible ways
 experimental:
 #   # Enable admission controllers
-#   admission:
+   admission:
 #     podSecurityPolicy:
 #       enabled: true
 #     denyEscalatingExec:
 #       enabled: true
+     initializers:
+       enabled: true
 #   # Used to provide `/etc/environment` env vars with values from arbitrary CloudFormation refs
 #   awsEnvironment:
 #     enabled: true

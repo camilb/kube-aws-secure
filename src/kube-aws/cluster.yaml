@@ -127,6 +127,9 @@ addons:
   rescheduler:
     enabled: true
 experimental:
+   admission:
+     initializers:
+       enabled: true
    authentication:
    awsNodeLabels:
      enabled: true
