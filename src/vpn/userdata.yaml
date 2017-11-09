@@ -1,0 +1,75 @@
+#cloud-config
+coreos:
+  update:
+    reboot-strategy: "off"
+  units:
+    - name: pritunl.service
+      enable: true
+      command: start
+      content: |
+        [Unit]
+        Description=Pritunl VPN
+        Requires=docker.service
+        After=var-lib-pritunl.mount
+
+        [Service]
+        ExecStartPre=-/usr/bin/mkdir -p /var/lib/pritunl/pritunl
+        ExecStartPre=-/usr/bin/mkdir -p /var/lib/pritunl/mongodb
+        ExecStart=/usr/bin/docker run \
+                --name=pritunl \
+                --detach \
+                --privileged \
+                --network=host \
+                --restart=always \
+                -v /var/lib/pritunl/mongodb:/var/lib/mongodb \
+                -v /var/lib/pritunl/pritunl:/var/lib/pritunl \
+                jippi/pritunl
+        Restart=always
+        RestartSec=60s
+
+        [Install]
+        WantedBy=multi-user.target
+
+    - name: var-lib-pritunl.mount
+      enable: true
+      content: |
+        [Unit]
+        Before=pritunl.service
+
+        [Mount]
+        What=/dev/xvdc
+        Where=/var/lib/pritunl
+        Type=ext4
+
+        [Install]
+        RequiredBy=pritunl.service
+
+    - name: format-pritunl-volume.service
+      enable: true
+      command: start
+      content: |
+        [Unit]
+        Description=Formats pritunl ebs volume
+        After=dev-xvdc.device
+        Requires=dev-xvdc.device
+        Before=var-lib-pritunl.mount
+
+        [Service]
+        Type=oneshot
+        RemainAfterExit=yes
+        ExecStart=/opt/bin/ext4-format-volume-once /dev/xvdc
+
+        [Install]
+        RequiredBy=var-lib-pritunl.mount
+
+write_files:
+  - path: /opt/bin/ext4-format-volume-once
+    permissions: 0700
+    owner: root:root
+    content: |
+      #!/bin/bash -e
+      if [[ "$(wipefs -n -p $1 | grep ext4)" == "" ]];then
+        mkfs.ext4 $1
+      else
+        echo "volume $1 is already formatted"
+      fi

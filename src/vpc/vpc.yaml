@@ -37,9 +37,6 @@ Mappings:
       PrivateSubnetC: 10.0.3.0/24
 
       FnGetAZs:       ["aws_regiona", "aws_regionb", "aws_regionc"]
-  RegionMap:
-    aws_region:
-      AMI: ami_id
 
 Resources:
   #KMS
@@ -300,8 +297,7 @@ Resources:
   SSHSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      VpcId:
-        Ref: !Ref KubeAwsVPC
+      VpcId: !Ref KubeAwsVPC
       GroupDescription: Enable SSH access via port 22 from current IP
       SecurityGroupIngress:
       - CidrIp: 0.0.0.0/0
@@ -311,8 +307,7 @@ Resources:
   WebSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      VpcId:
-        Ref: !Ref KubeAwsVPC
+      VpcId: !Ref KubeAwsVPC
       GroupDescription: Enable HTTPS access from current IP
       SecurityGroupIngress:
       - CidrIp: 0.0.0.0/0
@@ -322,8 +317,7 @@ Resources:
   VPNSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      VpcId:
-        Ref: !Ref KubeAwsVPC
+      VpcId: !Ref KubeAwsVPC
       GroupDescription: Enable VPN access via port 34000 from everywhere
       SecurityGroupIngress:
       - CidrIp: 0.0.0.0/0
@@ -337,6 +331,8 @@ Resources:
       Description: Vpn interface
       GroupSet:
       - !Ref SSHSecurityGroup
+      - !Ref WebSecurityGroup
+      - !Ref VPNSecurityGroup
       SourceDestCheck: true
       Tags:
         -
@@ -345,15 +341,9 @@ Resources:
   Ec2Instance:
     Type: AWS::EC2::Instance
     Properties:
-      ImageId:
-        Fn::FindInMap:
-        - RegionMap
-        - Ref: AWS::Region
-        - AMI
-      KeyName:
-        Ref: KeyPair
-      InstanceType:
-        Ref: InstanceType
+      ImageId: ami_id
+      KeyName: !Ref KeyPair
+      InstanceType: !Ref InstanceType
       NetworkInterfaces:
         -
           NetworkInterfaceId: !Ref eth0
@@ -362,7 +352,18 @@ Resources:
         -
           Key: Role
           Value: Vpn
-      UserData: H4sICMHzAVoAA2NkAJ1SsU7DMBDd+xWnMrthYoiUAQQDC6paAQMwOPYlNXXsYJ9TKvHxOE2aQptKiCxO3nv37px7F0LbIJmwplDlRFiH1qcTgFBLTti+ATjMrSXmyUWo3KYwtUUxbUVGke80DAyvMIXaKQpGzzy6RgnccQDCVhU3MgVP3NEAGkJDKXz1AMDLY3R8Gz5v0QunalLWZPPOGJ7mDwO/wI+gHPrMIG2sWzNrtDI4i01KpEF2XRC6M5pD62U38aH73SeKZTvv3GHGkuBdkiuTVGupHLAakoa7RKs86e+8P/9vUFlTWpmfGmRDsbRijQ5cMPA66PYPY+0Sst5uVCCRuFiNUrGsURpLlOPW3f/LVtbTqCAuYjcr1xu+9WOS5uyV04HogT+W92d6TIyUv6u6Vic7Wvwa+hheosiuLv2PlNybSGh9SMkzjymWN9usCpoUCzH4+2x9A/oPt9JcAwAA
+      UserData: H4sICK+VBFoAA3ZwbgC9VUmP0zAUvvdXPDJzgIObIiGQgnxgxCBxAFUzLIdSIcd5aUwTO9hO2krz47Gzlk7KDBzIIctbvvf5bbnguaoSwpVMxWbGlUZlohlAVSbMon8D0BgrZYmx2ok2hwgClaaBN5LCmtaGgGQFRlBqYSuZzw3qWnBsdAAoWZw7rdVVL+KqKJhMIjCWaTsIpUVpI7jrBACrzy7Ievh8i4ZrUVqhJF22seDL8uOgv8GfldBoaKL4FvUJD4A3qUVNa6ZJLmLSsy1UJe1sjHnbeo1hr/fIbz3RpUZKwsroMBYyLLaJ0EBKCB1i6BDDDrF//jtAoeRGJfF9ADo4t0cEXUn4Ntj1FyG+ILSDmzRI0DKeTaqcWy1y3GAyDY12p/SWZsrYSQNXgYYry3fsYKZM6rNHjgZFJ3ike/eMThUT7j9EWYp7Nbr5jfSp+BY5fbkwR13yXjpFno9d8pW59k2uDrSocitI5Zpv7lw32PVWPyTT7ddiTI7KQ1NxhambXHo6fKP5Bx/hiGjGXB8lWIf7OuFHYnQop/kb1J8OJVLc2xd/ykE3gD4Lk3T6HDjCBbN9Ckit8qrA/7I23jWRTb+qAGMDbfiTLeHyQ3x+5u7leIeMO+aMQVeOv94yTYKVRJMpexStYEI2jK73wtIDjq15tBRUaZul4OtDuuS2pyJKcoSx2o8r3hnyO/eJ31O3G5rFT6BkNovgofBNhBJ1IYxxNTARLF4tFo1U7STqCLT7xUT+Npus6MWTBj5mJgPSZ1qksFpBcPl0J0pMDRDpV+nlc7iDjcYSPJlnAVAKQQDr9WuboRzOWmxTM/cWzqHvt9yMRUSeKQjaM3hMYYDlGlly6HrXjXrQWadi9gt2tciBSQcAAA==
+  DataVolume:
+    Type: AWS::EC2::Volume
+    Properties:
+      Size: 5
+      AvailabilityZone: !GetAtt Ec2Instance.AvailabilityZone
+  MountPoint:
+    Type: AWS::EC2::VolumeAttachment
+    Properties:
+      InstanceId: !Ref Ec2Instance
+      VolumeId: !Ref DataVolume
+      Device: /dev/xvdc
 
 
 Outputs:
