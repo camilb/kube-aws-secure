@@ -9,6 +9,20 @@ Parameters:
   KubernetesCluster:
     Type: String
 
+  InstanceType:
+    Description: EC2 HVM instance type.
+    Type: String
+    Default: t2.micro
+    AllowedValues:
+    - t2.micro
+    - t2.small
+    - t2.medium
+    ConstraintDescription: Must be a valid EC2 HVM instance type.
+  KeyPair:
+    Description: The name of an EC2 Key Pair to allow SSH access to the instance.
+    Default: key_name
+    Type: String
+
 Mappings:
   ConfigMap:
     Environment:
@@ -23,6 +37,9 @@ Mappings:
       PrivateSubnetC: 10.0.3.0/24
 
       FnGetAZs:       ["aws_regiona", "aws_regionb", "aws_regionc"]
+  RegionMap:
+    aws_region:
+      AMI: ami_id
 
 Resources:
   #KMS
@@ -268,6 +285,84 @@ Resources:
       RouteTableId:         !Ref PrivateRouteTable
       NatGatewayId:         !Ref NATGateway
 
+
+#VPN
+
+  ControlPortAddress:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+  AssociateControlPort:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      AllocationId: !GetAtt ControlPortAddress.AllocationId
+      NetworkInterfaceId: !Ref eth0
+  SSHSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: !Ref KubeAwsVPC
+      GroupDescription: Enable SSH access via port 22 from current IP
+      SecurityGroupIngress:
+      - CidrIp: 0.0.0.0/0
+        FromPort: 22
+        IpProtocol: tcp
+        ToPort: 22
+  WebSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: !Ref KubeAwsVPC
+      GroupDescription: Enable HTTPS access from current IP
+      SecurityGroupIngress:
+      - CidrIp: 0.0.0.0/0
+        FromPort: 443
+        IpProtocol: tcp
+        ToPort: 443
+  VPNSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId:
+        Ref: !Ref KubeAwsVPC
+      GroupDescription: Enable VPN access via port 34000 from everywhere
+      SecurityGroupIngress:
+      - CidrIp: 0.0.0.0/0
+        FromPort: 34000
+        IpProtocol: tcp
+        ToPort: 34000
+  eth0:
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      SubnetId: !Ref PublicSubnetA
+      Description: Vpn interface
+      GroupSet:
+      - !Ref SSHSecurityGroup
+      SourceDestCheck: true
+      Tags:
+        -
+          Key: Network
+          Value: Control
+  Ec2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId:
+        Fn::FindInMap:
+        - RegionMap
+        - Ref: AWS::Region
+        - AMI
+      KeyName:
+        Ref: KeyPair
+      InstanceType:
+        Ref: InstanceType
+      NetworkInterfaces:
+        -
+          NetworkInterfaceId: !Ref eth0
+          DeviceIndex: 0
+      Tags:
+        -
+          Key: Role
+          Value: Vpn
+      UserData: H4sICMHzAVoAA2NkAJ1SsU7DMBDd+xWnMrthYoiUAQQDC6paAQMwOPYlNXXsYJ9TKvHxOE2aQptKiCxO3nv37px7F0LbIJmwplDlRFiH1qcTgFBLTti+ATjMrSXmyUWo3KYwtUUxbUVGke80DAyvMIXaKQpGzzy6RgnccQDCVhU3MgVP3NEAGkJDKXz1AMDLY3R8Gz5v0QunalLWZPPOGJ7mDwO/wI+gHPrMIG2sWzNrtDI4i01KpEF2XRC6M5pD62U38aH73SeKZTvv3GHGkuBdkiuTVGupHLAakoa7RKs86e+8P/9vUFlTWpmfGmRDsbRijQ5cMPA66PYPY+0Sst5uVCCRuFiNUrGsURpLlOPW3f/LVtbTqCAuYjcr1xu+9WOS5uyV04HogT+W92d6TIyUv6u6Vic7Wvwa+hheosiuLv2PlNybSGh9SMkzjymWN9usCpoUCzH4+2x9A/oPt9JcAwAA
 
 
 Outputs:

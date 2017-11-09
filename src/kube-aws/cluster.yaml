@@ -1,6 +1,6 @@
 
 clusterName: demokube #has to be the same as KUBERNETES_CLUSTER var in vpc/deploy
-releaseChannel: stable
+releaseChannel: alpha
 apiEndpoints:
 - name: default
   dnsName: kubeapi.domain_name
