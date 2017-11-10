@@ -284,15 +284,14 @@ Resources:
 
 
 #VPN
-
-  ControlPortAddress:
+  VpnAddress:
     Type: AWS::EC2::EIP
     Properties:
       Domain: vpc
-  AssociateControlPort:
+  AssociateVpnAddress:
     Type: AWS::EC2::EIPAssociation
     Properties:
-      AllocationId: !GetAtt ControlPortAddress.AllocationId
+      AllocationId: !GetAtt VpnAddress.AllocationId
       NetworkInterfaceId: !Ref eth0
   SSHSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -300,7 +299,7 @@ Resources:
       VpcId: !Ref KubeAwsVPC
       GroupDescription: Enable SSH access via port 22 from current IP
       SecurityGroupIngress:
-      - CidrIp: 0.0.0.0/0
+      - CidrIp: my_ip/32
         FromPort: 22
         IpProtocol: tcp
         ToPort: 22
@@ -310,7 +309,7 @@ Resources:
       VpcId: !Ref KubeAwsVPC
       GroupDescription: Enable HTTPS access from current IP
       SecurityGroupIngress:
-      - CidrIp: 0.0.0.0/0
+      - CidrIp: my_ip/32
         FromPort: 443
         IpProtocol: tcp
         ToPort: 443
@@ -318,12 +317,22 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       VpcId: !Ref KubeAwsVPC
-      GroupDescription: Enable VPN access via port 34000 from everywhere
+      GroupDescription: Enable VPN access via port 12777 from everywhere
       SecurityGroupIngress:
       - CidrIp: 0.0.0.0/0
-        FromPort: 34000
+        FromPort: 12777
+        IpProtocol: udp
+        ToPort: 12777
+  LESecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref KubeAwsVPC
+      GroupDescription: Allow LetsEncrypt to verify the host
+      SecurityGroupIngress:
+      - CidrIp: 0.0.0.0/0
+        FromPort: 80
         IpProtocol: tcp
-        ToPort: 34000
+        ToPort: 80
   eth0:
     Type: AWS::EC2::NetworkInterface
     Properties:
@@ -333,6 +342,7 @@ Resources:
       - !Ref SSHSecurityGroup
       - !Ref WebSecurityGroup
       - !Ref VPNSecurityGroup
+      - !Ref LESecurityGroup
       SourceDestCheck: true
       Tags:
         -
@@ -352,7 +362,7 @@ Resources:
         -
           Key: Role
           Value: Vpn
-      UserData: H4sICK+VBFoAA3ZwbgC9VUmP0zAUvvdXPDJzgIObIiGQgnxgxCBxAFUzLIdSIcd5aUwTO9hO2krz47Gzlk7KDBzIIctbvvf5bbnguaoSwpVMxWbGlUZlohlAVSbMon8D0BgrZYmx2ok2hwgClaaBN5LCmtaGgGQFRlBqYSuZzw3qWnBsdAAoWZw7rdVVL+KqKJhMIjCWaTsIpUVpI7jrBACrzy7Ievh8i4ZrUVqhJF22seDL8uOgv8GfldBoaKL4FvUJD4A3qUVNa6ZJLmLSsy1UJe1sjHnbeo1hr/fIbz3RpUZKwsroMBYyLLaJ0EBKCB1i6BDDDrF//jtAoeRGJfF9ADo4t0cEXUn4Ntj1FyG+ILSDmzRI0DKeTaqcWy1y3GAyDY12p/SWZsrYSQNXgYYry3fsYKZM6rNHjgZFJ3ike/eMThUT7j9EWYp7Nbr5jfSp+BY5fbkwR13yXjpFno9d8pW59k2uDrSocitI5Zpv7lw32PVWPyTT7ddiTI7KQ1NxhambXHo6fKP5Bx/hiGjGXB8lWIf7OuFHYnQop/kb1J8OJVLc2xd/ykE3gD4Lk3T6HDjCBbN9Ckit8qrA/7I23jWRTb+qAGMDbfiTLeHyQ3x+5u7leIeMO+aMQVeOv94yTYKVRJMpexStYEI2jK73wtIDjq15tBRUaZul4OtDuuS2pyJKcoSx2o8r3hnyO/eJ31O3G5rFT6BkNovgofBNhBJ1IYxxNTARLF4tFo1U7STqCLT7xUT+Npus6MWTBj5mJgPSZ1qksFpBcPl0J0pMDRDpV+nlc7iDjcYSPJlnAVAKQQDr9WuboRzOWmxTM/cWzqHvt9yMRUSeKQjaM3hMYYDlGlly6HrXjXrQWadi9gt2tciBSQcAAA==
+      UserData: H4sICKHlBVoAA3VzZXJkYXRhLnlhbWwAvVVJb9QwFL7Pr3ikPcDBk6mEQArygYoicQBVlOVQKuQ4LxNrYjvYTmZG4sdjZ9eQ0sKBHLK89fNbvpzxUtcZ4VrlYrvi2qC2yQqgrjLmMLwBGEy1dsQ640XbYwKRzvMoGCnhbGdDQDGJCVRGuFqVa4umERxbHQAqlpZe60w9iLiWkqksAeuYcaNQOVQugZ+9AOD2s09yN36+QcuNqJzQil53ueDL9YdR/xF/1MKgpZnmOzQnOABe5w4NbZghpUjJgFbqWrnVlPOm85rSXh2Q3wSg1wYpiWtr4lSoWO4yYYBUEPuIsY8Y9xGH578HkFptdZb+HoCOzt0RwdQKvo12w0VIaAjtwy0aZOgYLxZV3q0RJW4xWw6Nbq/NjhbaukUD34EWKyv37GiXTJp7j5yMil7wSPf+mZwqFtw5k2JyuFhvZvMzB34qvkFOX2zsbFLeKa8oy2lSvjI/wtnlkcq6dILUfgDX3nWL/XwNi7I8gl2MxXV5aDMuMffbS08XcDJ/HzLMgBbMz1KGTXxoMj4To49yWsNR/elYIcWDe/6nGvRLGKqwCGeogQcsmRtKQBpd1hL/C3W8bTPbga4AUwtd+hOm8PUhoT5r/zLnkYln7jHo2/HXTNMWWCu0hXazbJIJ1SK6OghHjziN5owYdOVaYgj9IX1xu1MRrTjC1O3HNe8e8Hv/id9zzw8t+ROomCsSeCh9m6FCI4W1vgc2gc3LTbd5eq/QJGD8byYJt9ViR8+etOFTZgsgQ6VFDre3EJ0/3YsKcwtEBTo9v4CfsDVYQQDzLAJKIYrg7u6VK1CNZ5W73K6DhXcY5q20UxORFxqi7gwhprDASoMsO/az61c96q1zsfoFsiL7OE0HAAA=
   DataVolume:
     Type: AWS::EC2::Volume
     Properties:
@@ -364,9 +374,23 @@ Resources:
       InstanceId: !Ref Ec2Instance
       VolumeId: !Ref DataVolume
       Device: /dev/xvdc
-
+  VpnDNSRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneName: domain_name.
+      Name: k8svpn.domain_name.
+      Type: A
+      TTL: '300'
+      ResourceRecords:
+      - !Ref VpnAddress
 
 Outputs:
+  VpnDNSReccord:
+    Value: !Ref VpnDNSRecord
+
+  VpnIpAddress:
+    Value: !Ref VpnAddress
+
   VpcId:
     Value: !Ref KubeAwsVPC
 

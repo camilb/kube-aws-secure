@@ -23,7 +23,7 @@ coreos:
                 --restart=always \
                 -v /var/lib/pritunl/mongodb:/var/lib/mongodb \
                 -v /var/lib/pritunl/pritunl:/var/lib/pritunl \
-                jippi/pritunl
+                camil/pritunl:1.0
         Restart=always
         RestartSec=60s
 
