@@ -149,6 +149,17 @@ do
 done
 echo
 
+#####################################################################################################
+# pritunl vpn
+#####################################################################################################
+ami_id=$(curl -s https://coreos.com/dist/aws/aws-stable.json | jq '.["'$aws_region'"].hvm')
+
+#detect external IP
+my_ip=$(dig +short myip.opendns.com @resolver1.opendns.com)
+
+#curl -s https://coreos.com/dist/aws/aws-stable.json | jq '.release_info.version'
+
+
 #aws hosted zone id
 hosted_zone_id=$(aws --profile $aws_profile route53 list-hosted-zones | jq -r '.HostedZones[] | select(.Name="'$domain_name'") | .Id' | cut -d "/" -f3)
 
@@ -161,6 +172,7 @@ sed -i -e 's,aws_region,'"$aws_region"',g' iam/deploy
 
 ##set key pair
 sed -i -e 's,key_name,'"$key_name"',g' kube-aws/cluster.yaml
+sed -i -e 's,key_name,'"$key_name"',g' vpc/vpc.yaml
 
 ##set hosted_zone_id
 sed -i -e 's,hosted_zone_id,'"$hosted_zone_id"',g' kube-aws/cluster.yaml
@@ -169,6 +181,13 @@ sed -i -e 's,hosted_zone_id,'"$hosted_zone_id"',g' iam/iam.yaml
 ##set domain_name
 sed -i -e 's,domain_name,'"$domain_name"',g' kube-aws/cluster.yaml
 sed -i -e 's,domain_name,'"$domain_name"',g' addons/external-dns/external-dns.yaml
+sed -i -e 's,domain_name,'"$domain_name"',g' vpc/vpc.yaml
+
+##set ami_id
+sed -i -e 's,ami_id,'"$ami_id"',g' vpc/vpc.yaml
+
+##set allowed ip for vpn access SSH and Web ports
+sed -i -e 's,my_ip,'"$my_ip"',g' vpc/vpc.yaml
 
 #clean sed generated files
 find . -name "*-e" -exec rm -rf {} \;
@@ -214,6 +233,14 @@ echo -e "${BLUE}Getting the CloudFormation stack outputs"
 tput sgr0
 echo
 
+#vpn DNS Reccord
+VPN_DNS_RECCORD=$(aws --profile $aws_profile cloudformation describe-stacks --stack-name=$stack_name | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="VpnDNSReccord") | .OutputValue')
+echo -e "${RED}VPN_DNS_RECCORD: ${GREEN}${VPN_DNS_RECCORD}"
+
+#vpn IP address
+VPN_IP_ADDRESS=$(aws --profile $aws_profile cloudformation describe-stacks --stack-name=$stack_name | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="VpnIpAddress") | .OutputValue')
+echo -e "${RED}VPN_IP_ADDRESS: ${GREEN}${VPN_IP_ADDRESS}"
+
 #kms key
 KMS_KEY_ARN=$(aws --profile $aws_profile cloudformation describe-stacks --stack-name=$stack_name | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="KMSKeyArn") | .OutputValue')
 echo -e "${RED}KMS_KEY_ARN: ${GREEN}${KMS_KEY_ARN}"
@@ -247,6 +274,10 @@ tput sgr0
 AWS_ACCOUNT_ID=$(aws --profile $aws_profile cloudformation describe-stacks --stack-name=$stack_name | jq -r '.Stacks[].Outputs[] | select(.OutputKey=="KMSKeyArn") | .OutputValue' | cut -d ':' -f5 )
 echo -e "${RED}AWS_ACCOUNT_ID: ${GREEN}${AWS_ACCOUNT_ID}"
 tput sgr0
+
+echo -e "${GREEN}Please go to ${RED}https://k8svpn.$domain_name ${GREEN}and configure the VPN server using user: ${RED}pritunl ${GREEN}and password: ${RED}pritunl"
+tput sgr0
+echo
 
 #replace the values from the CloudFormation outputs
 ##kms key arn
@@ -335,6 +366,10 @@ echo
 echo -e "${ORANGE}Deploy stack"
 tput sgr0
 AWS_PROFILE=$aws_profile kube-aws up --s3-uri s3://$bucket
+echo
+
+echo -e "${GREEN}If you didn't configure the VPN server yet, please go to ${RED}https://k8svpn.$domain_name ${GREEN}and set it up using the user: ${RED}pritunl ${GREEN}and the password: ${RED}pritunl"
+tput sgr0
 echo
 
 echo -e "${GREEN}Done"

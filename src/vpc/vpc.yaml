@@ -9,6 +9,20 @@ Parameters:
   KubernetesCluster:
     Type: String
 
+  InstanceType:
+    Description: EC2 HVM instance type.
+    Type: String
+    Default: t2.micro
+    AllowedValues:
+    - t2.micro
+    - t2.small
+    - t2.medium
+    ConstraintDescription: Must be a valid EC2 HVM instance type.
+  KeyPair:
+    Description: The name of an EC2 Key Pair to allow SSH access to the instance.
+    Default: key_name
+    Type: String
+
 Mappings:
   ConfigMap:
     Environment:
@@ -269,8 +283,114 @@ Resources:
       NatGatewayId:         !Ref NATGateway
 
 
+#VPN
+  VpnAddress:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+  AssociateVpnAddress:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      AllocationId: !GetAtt VpnAddress.AllocationId
+      NetworkInterfaceId: !Ref eth0
+  SSHSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref KubeAwsVPC
+      GroupDescription: Enable SSH access via port 22 from current IP
+      SecurityGroupIngress:
+      - CidrIp: my_ip/32
+        FromPort: 22
+        IpProtocol: tcp
+        ToPort: 22
+  WebSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref KubeAwsVPC
+      GroupDescription: Enable HTTPS access from current IP
+      SecurityGroupIngress:
+      - CidrIp: my_ip/32
+        FromPort: 443
+        IpProtocol: tcp
+        ToPort: 443
+  VPNSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref KubeAwsVPC
+      GroupDescription: Enable VPN access via port 12777 from everywhere
+      SecurityGroupIngress:
+      - CidrIp: 0.0.0.0/0
+        FromPort: 12777
+        IpProtocol: udp
+        ToPort: 12777
+  LESecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref KubeAwsVPC
+      GroupDescription: Allow LetsEncrypt to verify the host
+      SecurityGroupIngress:
+      - CidrIp: 0.0.0.0/0
+        FromPort: 80
+        IpProtocol: tcp
+        ToPort: 80
+  eth0:
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      SubnetId: !Ref PublicSubnetA
+      Description: Vpn interface
+      GroupSet:
+      - !Ref SSHSecurityGroup
+      - !Ref WebSecurityGroup
+      - !Ref VPNSecurityGroup
+      - !Ref LESecurityGroup
+      SourceDestCheck: true
+      Tags:
+        -
+          Key: Network
+          Value: Control
+  Ec2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami_id
+      KeyName: !Ref KeyPair
+      InstanceType: !Ref InstanceType
+      NetworkInterfaces:
+        -
+          NetworkInterfaceId: !Ref eth0
+          DeviceIndex: 0
+      Tags:
+        -
+          Key: Role
+          Value: Vpn
+      UserData: H4sICKHlBVoAA3VzZXJkYXRhLnlhbWwAvVVJb9QwFL7Pr3ikPcDBk6mEQArygYoicQBVlOVQKuQ4LxNrYjvYTmZG4sdjZ9eQ0sKBHLK89fNbvpzxUtcZ4VrlYrvi2qC2yQqgrjLmMLwBGEy1dsQ640XbYwKRzvMoGCnhbGdDQDGJCVRGuFqVa4umERxbHQAqlpZe60w9iLiWkqksAeuYcaNQOVQugZ+9AOD2s09yN36+QcuNqJzQil53ueDL9YdR/xF/1MKgpZnmOzQnOABe5w4NbZghpUjJgFbqWrnVlPOm85rSXh2Q3wSg1wYpiWtr4lSoWO4yYYBUEPuIsY8Y9xGH578HkFptdZb+HoCOzt0RwdQKvo12w0VIaAjtwy0aZOgYLxZV3q0RJW4xWw6Nbq/NjhbaukUD34EWKyv37GiXTJp7j5yMil7wSPf+mZwqFtw5k2JyuFhvZvMzB34qvkFOX2zsbFLeKa8oy2lSvjI/wtnlkcq6dILUfgDX3nWL/XwNi7I8gl2MxXV5aDMuMffbS08XcDJ/HzLMgBbMz1KGTXxoMj4To49yWsNR/elYIcWDe/6nGvRLGKqwCGeogQcsmRtKQBpd1hL/C3W8bTPbga4AUwtd+hOm8PUhoT5r/zLnkYln7jHo2/HXTNMWWCu0hXazbJIJ1SK6OghHjziN5owYdOVaYgj9IX1xu1MRrTjC1O3HNe8e8Hv/id9zzw8t+ROomCsSeCh9m6FCI4W1vgc2gc3LTbd5eq/QJGD8byYJt9ViR8+etOFTZgsgQ6VFDre3EJ0/3YsKcwtEBTo9v4CfsDVYQQDzLAJKIYrg7u6VK1CNZ5W73K6DhXcY5q20UxORFxqi7gwhprDASoMsO/az61c96q1zsfoFsiL7OE0HAAA=
+  DataVolume:
+    Type: AWS::EC2::Volume
+    Properties:
+      Size: 5
+      AvailabilityZone: !GetAtt Ec2Instance.AvailabilityZone
+  MountPoint:
+    Type: AWS::EC2::VolumeAttachment
+    Properties:
+      InstanceId: !Ref Ec2Instance
+      VolumeId: !Ref DataVolume
+      Device: /dev/xvdc
+  VpnDNSRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneName: domain_name.
+      Name: k8svpn.domain_name.
+      Type: A
+      TTL: '300'
+      ResourceRecords:
+      - !Ref VpnAddress
 
 Outputs:
+  VpnDNSReccord:
+    Value: !Ref VpnDNSRecord
+
+  VpnIpAddress:
+    Value: !Ref VpnAddress
+
   VpcId:
     Value: !Ref KubeAwsVPC
 
