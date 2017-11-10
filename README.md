@@ -2,7 +2,7 @@
 
 This repository contains an example of how to deploy a secure Kubernetes HA cluster in AWS using [kube-aws](https://github.com/kubernetes-incubator/kube-aws) automatically.
 
-The fallowing setup use a base CloudFormation stack to configure Public and Private Subnets, IGW, NatGW, Route Tables and KMS. After the stack is created, the Kubernetes cluster is automatically deployed on top of it using `kube-aws`.
+The fallowing setup use a base CloudFormation stack to configure Public and Private Subnets, IGW, NatGW, Route Tables, KMS and deploys automatically a VPN server in a public subnet. After the stack is created, the Kubernetes cluster is automatically deployed on top of it using `kube-aws`.
 
 [![asciicast](https://asciinema.org/a/145270.png)](https://asciinema.org/a/145270)
 
