@@ -11,13 +11,14 @@ The fallowing setup use a base CloudFormation stack to configure Public and Priv
 * simple and interactive deployment
 * all the nodes are deployed in private subnets
 * 3 distinct availability zones
-* 3 masters in HA, one per availability zone
+* multi AZ masters
 * workers configured using node pools, similar to [GKE node pools](https://cloud.google.com/container-engine/docs/node-pools)
 * HA ETCD with encrypted partitions for data, automatic backups to S3 and automatic/manual recovery from failover
 * role based authentication using the RBAC plugin
 * users authentication using [OpenID Connect Identity](https://kubernetes.io/docs/admin/authentication/#openid-connect-tokens) (OIDC)
 * AWS IAM roles directly assigned to pods using [kube2iam](https://github.com/jtblin/kube2iam)
 * cluster autoscaling
+* VPN server automatically deployed to a public subnet
 
 ![alt](https://www.camil.org/content/images/2017/05/kube-aws-secure.png)
 
@@ -28,7 +29,7 @@ The fallowing setup use a base CloudFormation stack to configure Public and Priv
 
 2. run `./deploy` and fallow the instructions
 
-3. Access your Kubernetes cluster. Since we are creating all the resources in private networks, in order to access it, you'll need a VPN placed in one of the public subnets. I'm using [pritunl](https://docs.pritunl.com/docs/installation), which is very easy to configure. In approximately 5 minutes you can get it up and running on a `t2.nano` instance.
+3. Access your Kubernetes cluster. Since  all the resources are in private networks, in order to access it, you'll need a VPN placed in one of the public subnets.[Pritunl](https://docs.pritunl.com/docs/installation) is now automatically deployed to a public subnet with a Elastic IP and DNS reccord.
 
 
 *Optionally you can configure your `~/.kube/config`according to `kubeconfig` file to avoid passing the `--kubeconfig` flag on your commands.*
@@ -40,6 +41,7 @@ The fallowing setup use a base CloudFormation stack to configure Public and Priv
 *Ex. `KubeernetesCluser=cluster_name`*
 
 *This is now set automatically*
+
 
 ### Add-ons
 
