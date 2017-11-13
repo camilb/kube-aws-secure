@@ -26,15 +26,15 @@ Parameters:
 Mappings:
   ConfigMap:
     Environment:
-      VPC:            10.0.0.0/16
+      VPC:            VPC_CIDR
 
-      PublicSubnetA:  10.0.101.0/24
-      PublicSubnetB:  10.0.102.0/24
-      PublicSubnetC:  10.0.103.0/24
+      PublicSubnetA:  PUBLIC_SUBNET_A_CIDR
+      PublicSubnetB:  PUBLIC_SUBNET_B_CIDR
+      PublicSubnetC:  PUBLIC_SUBNET_C_CIDR
 
-      PrivateSubnetA: 10.0.1.0/24
-      PrivateSubnetB: 10.0.2.0/24
-      PrivateSubnetC: 10.0.3.0/24
+      PrivateSubnetA: PRIVATE_SUBNET_A_CIDR
+      PrivateSubnetB: PRIVATE_SUBNET_B_CIDR
+      PrivateSubnetC: PRIVATE_SUBNET_C_CIDR
 
       FnGetAZs:       ["aws_regiona", "aws_regionb", "aws_regionc"]
 

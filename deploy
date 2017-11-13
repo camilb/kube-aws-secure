@@ -4,7 +4,20 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 ORANGE='\033[0;33m'
 BLUE='\033[0;34m'
+WHITE='\033[0;37m'
 GREEN_PS3=$'\e[0;32m'
+
+
+#########################################################################################
+# Default CIDR
+#########################################################################################
+DEFAULT_VPC_CIDR=10.0.0.0/16
+DEFAULT_PRIVATE_SUBNET_A_CIDR=10.0.1.0/24
+DEFAULT_PRIVATE_SUBNET_B_CIDR=10.0.2.0/24
+DEFAULT_PRIVATE_SUBNET_C_CIDR=10.0.3.0/24
+DEFAULT_PUBLIC_SUBNET_A_CIDR=10.0.101.0/24
+DEFAULT_PUBLIC_SUBNET_B_CIDR=10.0.102.0/24
+DEFAULT_PUBLIC_SUBNET_C_CIDR=10.0.103.0/24
 
 #########################################################################################
 # check requirements
@@ -49,13 +62,25 @@ else
   exit
 fi
 
-#aws conig
+#aws config
 if [[ -f ~/.aws/config ]] > /dev/null 2>&1; then
   echo -e "aws config: ....... ${GREEN}OK"
   tput sgr0
   echo
 else
   echo -e "${RED}Please configure awscli using ${ORANGE}aws configure ${RED}and run this script again"
+  tput sgr0
+  echo
+  exit
+fi
+
+#jq
+if [[ "$(which jq)" != "" ]] > /dev/null 2>&1; then
+  echo -e "jq: ............... ${GREEN}OK"
+  tput sgr0
+  echo
+else
+  echo -e "${RED}Please install jq and run this script again"
   tput sgr0
   echo
   exit
@@ -203,6 +228,123 @@ echo
 if [[ "$(aws --profile $aws_profile cloudformation describe-stacks --stack-name=$stack_name | jq -r '.Stacks[].StackStatus')" != "CREATE_COMPLETE" ]] > /dev/null 2>&1; then
   cd vpc
   sed -i -e 's,stack_name,'"$stack_name"',g' deploy
+  echo -e "${BLUE}Use default CIDR settings?"
+  tput sgr0
+  echo
+  echo -e "${BLUE}VPC CIDR: ${WHITE}10.0.0.0/16"
+  echo
+  echo -e "${BLUE}Private Subnet A CIDR: ${WHITE}10.0.1.0/24"
+  echo -e "${BLUE}Private Subnet B CIDR: ${WHITE}10.0.2.0/24"
+  echo -e "${BLUE}Private Subnet C CIDR: ${WHITE}10.0.3.0/24"
+  echo
+  echo -e "${BLUE}Public Subnet A CIDR: ${WHITE}10.0.101.0/24"
+  echo -e "${BLUE}Public Subnet B CIDR: ${WHITE}10.0.102.0/24"
+  echo -e "${BLUE}Public Subnet C CIDR: ${WHITE}10.0.103.0/24"
+  tput sgr0
+  echo
+  read -p "Y/N [N]: " default_cidr
+  if [[ $default_cidr =~ ^([yY][eE][sS]|[yY])$ ]]; then
+    echo "Using default CIDR settings"
+    echo
+
+    #Set default CIDR values
+    #VPC CIDR
+    sed -i -e 's,VPC_CIDR,'"$DEFAULT_VPC_CIDR"',g' ./vpc.yaml
+
+    #Private Subnet A CIDR
+    sed -i -e 's,PRIVATE_SUBNET_A_CIDR,'"$DEFAULT_PRIVATE_SUBNET_A_CIDR"',g' ./vpc.yaml
+
+    #Private Subnet B CIDR
+    sed -i -e 's,PRIVATE_SUBNET_B_CIDR,'"$DEFAULT_PRIVATE_SUBNET_B_CIDR"',g' ./vpc.yaml
+
+    #Private Subnet C CIDR
+    sed -i -e 's,PRIVATE_SUBNET_C_CIDR,'"$DEFAULT_PRIVATE_SUBNET_C_CIDR"',g' ./vpc.yaml
+
+    #Public Subnet A CIDR
+    sed -i -e 's,PUBLIC_SUBNET_A_CIDR,'"$DEFAULT_PUBLIC_SUBNET_A_CIDR"',g' ./vpc.yaml
+
+    #Public Subnet B CIDR
+    sed -i -e 's,PUBLIC_SUBNET_B_CIDR,'"$DEFAULT_PUBLIC_SUBNET_B_CIDR"',g' ./vpc.yaml
+
+    #Public Subnet C CIDR
+    sed -i -e 's,PUBLIC_SUBNET_C_CIDR,'"$DEFAULT_PUBLIC_SUBNET_C_CIDR"',g' ./vpc.yaml
+
+    #clean sed generated files
+    find . -name "*-e" -exec rm -rf {} \;
+
+  else
+    #VPC CIDR
+    echo
+    read -p "VPC CIDR [$DEFAULT_VPC_CIDR]:" VPC_CIDR
+    VPC_CIDR=${VPC_CIDR:-$DEFAULT_VPC_CIDR}
+
+    #PRIVATE SUBNETS
+    #private Subnet A CIDR
+    echo
+    read -p "Private Subnet A CIDR [$DEFAULT_PRIVATE_SUBNET_A_CIDR]:" PRIVATE_SUBNET_A_CIDR
+    PRIVATE_SUBNET_A_CIDR=${PRIVATE_SUBNET_A_CIDR:-$DEFAULT_PRIVATE_SUBNET_A_CIDR}
+
+    #private Subnet B CIDR
+    echo
+    read -p "Private Subnet B CIDR [$DEFAULT_PRIVATE_SUBNET_B_CIDR]:" PRIVATE_SUBNET_B_CIDR
+    PRIVATE_SUBNET_B_CIDR=${PRIVATE_SUBNET_B_CIDR:-$DEFAULT_PRIVATE_SUBNET_B_CIDR}
+
+    #private Subnet C CIDR
+    echo
+    read -p "Private Subnet C CIDR [$DEFAULT_PRIVATE_SUBNET_C_CIDR]:" PRIVATE_SUBNET_C_CIDR
+    PRIVATE_SUBNET_C_CIDR=${PRIVATE_SUBNET_C_CIDR:-$DEFAULT_PRIVATE_SUBNET_C_CIDR}
+
+    #PUBLIC SUBNETS
+    #public Subnet A CIDR
+    echo
+    read -p "Public Subnet A CIDR [$DEFAULT_PUBLIC_SUBNET_A_CIDR]:" PUBLIC_SUBNET_A_CIDR
+    PUBLIC_SUBNET_A_CIDR=${PUBLIC_SUBNET_A_CIDR:-$DEFAULT_PUBLIC_SUBNET_A_CIDR}
+
+    #public Subnet B CIDR
+    echo
+    read -p "Public Subnet B CIDR [$DEFAULT_PUBLIC_SUBNET_B_CIDR]:" PUBLIC_SUBNET_B_CIDR
+    PUBLIC_SUBNET_B_CIDR=${PUBLIC_SUBNET_B_CIDR:-$DEFAULT_PUBLIC_SUBNET_B_CIDR}
+
+    #public Subnet C CIDR
+    echo
+    read -p "Public Subnet C CIDR [$DEFAULT_PUBLIC_SUBNET_C_CIDR]:" PUBLIC_SUBNET_C_CIDR
+    PUBLIC_SUBNET_C_CIDR=${PUBLIC_SUBNET_C_CIDR:-$DEFAULT_PUBLIC_SUBNET_C_CIDR}
+
+    #Replace default CIDR values
+    #VPC CIDR
+    sed -i -e 's,VPC_CIDR,'"$VPC_CIDR"',g' ./vpc.yaml
+
+    #Private Subnet A CIDR
+    sed -i -e 's,PRIVATE_SUBNET_A_CIDR,'"$PRIVATE_SUBNET_A_CIDR"',g' ./vpc.yaml
+
+    #Private Subnet B CIDR
+    sed -i -e 's,PRIVATE_SUBNET_B_CIDR,'"$PRIVATE_SUBNET_B_CIDR"',g' ./vpc.yaml
+
+    #Private Subnet C CIDR
+    sed -i -e 's,PRIVATE_SUBNET_C_CIDR,'"$PRIVATE_SUBNET_C_CIDR"',g' ./vpc.yaml
+
+    #Public Subnet A CIDR
+    sed -i -e 's,PUBLIC_SUBNET_A_CIDR,'"$PUBLIC_SUBNET_A_CIDR"',g' ./vpc.yaml
+
+    #Public Subnet B CIDR
+    sed -i -e 's,PUBLIC_SUBNET_B_CIDR,'"$PUBLIC_SUBNET_B_CIDR"',g' ./vpc.yaml
+
+    #Public Subnet C CIDR
+    sed -i -e 's,PUBLIC_SUBNET_C_CIDR,'"$PUBLIC_SUBNET_C_CIDR"',g' ./vpc.yaml
+
+    #clean sed generated files
+    find . -name "*-e" -exec rm -rf {} \;
+
+  fi
+
+
+  #Custom VPC settings
+  echo
+  echo -e "${BLUE}You can make additional changes in VPC config. Edit ${ORANGE}vpc/vpc.yaml ${BLUE}and press ENTER"
+  tput sgr0
+  read -p " [ENTER]: " vpc_yaml
+  echo
+
   echo -e "${BLUE}Creating CloudFormation VPC stack"
   tput sgr0
   echo
@@ -275,6 +417,7 @@ AWS_ACCOUNT_ID=$(aws --profile $aws_profile cloudformation describe-stacks --sta
 echo -e "${RED}AWS_ACCOUNT_ID: ${GREEN}${AWS_ACCOUNT_ID}"
 tput sgr0
 
+echo
 echo -e "${GREEN}Please go to ${RED}https://k8svpn.$domain_name ${GREEN}and configure the VPN server using user: ${RED}pritunl ${GREEN}and password: ${RED}pritunl."
 echo
 echo -e "${GREEN}If you don't want to configure the Security Group manually, please configure the server to use the port ${RED}12777. ${GREEN}An option to set the port will be added soon."
