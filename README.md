@@ -60,5 +60,8 @@ This add-on is based on [ExternalDNS](https://github.com/kubernetes-incubator/ex
 #### kube-lego
 [Kube-Lego](https://github.com/jetstack/kube-lego) automatically requests certificates for Kubernetes Ingress resources from Let's Encrypt.
 
+#### fluentd-cloudwatch
+This add-on is based on [fluentd-kubernetes-daemonset](https://github.com/fluent/fluentd-kubernetes-daemonset) and can forward the container logs to CloudWatchLogs.
+
 #### Monitoring
 A easy to setup, in-cluster, monitoring solution using Prometheus is available [here](https://github.com/camilb/prometheus-kubernetes)
