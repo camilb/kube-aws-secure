@@ -58,3 +58,31 @@ fi
 
 echo -e "${GREEN}Done"
 tput sgr0
+
+#########################################################################################
+# fluentd-kubernetes-cloudwatch
+#########################################################################################
+echo
+echo -e "${BLUE}Deploy fluentd-kubernetes-cloudwatch?"
+tput sgr0
+read -p "Y/N [N]: " fluentd_cloudwatch
+
+if [[ $fluentd_cloudwatch =~ ^([yY][eE][sS]|[yY])$ ]]; then
+
+  kubectl apply -f fluentd-kubernetes-cloudwatch/log.ns.yaml
+  kubectl apply -f fluentd-kubernetes-cloudwatch/fluentd.rbac.yaml
+  #Custom Fluentd settings
+  echo
+  echo -e "${BLUE}Make sure you updated the configmap for fluentd with your custom configuration ${ORANGE}addons/fluentd/fluentd-kubernetes-cloudwatch/fluentd.cm.yaml ${BLUE}Press ENTER to continue"
+  tput sgr0
+  read -p " [ENTER]: " fluent_config
+  echo
+  kubectl apply -f fluentd-kubernetes-cloudwatch/fluentd.cm.yaml
+  kubectl apply -f fluentd-kubernetes-cloudwatch/fluentd.ds.yaml
+
+else
+  echo -e "Skipping"
+fi
+
+echo -e "${GREEN}Done"
+tput sgr0

@@ -1,0 +1,66 @@
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  labels:
+    name: fluentd
+  name: fluentd
+  namespace: log
+spec:
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: fluentd
+      annotations:
+        iam.amazonaws.com/role: k8s-fluentd-cloudwatch
+    spec:
+      tolerations:
+      - operator: Exists
+        effect: NoSchedule
+      - operator: Exists
+        effect: NoExecute
+      - operator: Exists
+        key: CriticalAddonsOnly
+      serviceAccount: fluentd
+      containers:
+        - image: camil/fluentd-kubernetes-cloudwatch:0.1.0
+          name: fluentd
+          ports:
+          volumeMounts:
+            - mountPath: /var/log/containers
+              name: containerlogs
+              readOnly: true
+            - mountPath: /var/lib/docker/containers/
+              name: dockercontainerlogs
+              readOnly: true
+            - mountPath: /var/log/pods
+              name: podlogs
+              readOnly: true
+            - mountPath: /fluentd/etc
+              name: fluentd-config
+            - mountPath: /logpos
+              name: logpos
+          imagePullPolicy: Always
+          env:
+            - name: AWS_REGION
+              value: aws_region
+      volumes:
+        - name: containerlogs
+          hostPath:
+            path: /var/log/containers
+        - name: podlogs
+          hostPath:
+            path: /var/log/pods
+        - name: dockercontainerlogs
+          hostPath:
+            path: /var/lib/docker/containers/
+        - name: logpos
+          hostPath:
+            path: /var/log/fluentd/pos
+        - name: fluentd-config
+          configMap:
+            name: fluentd
+            items:
+              - key: fluent.conf
+                path: fluent.conf
