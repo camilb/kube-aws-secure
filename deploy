@@ -194,6 +194,7 @@ sed -i -e 's,aws_region,'"$aws_region"',g' vpc/vpc.yaml
 sed -i -e 's,aws_region,'"$aws_region"',g' vpc/deploy
 sed -i -e 's,aws_region,'"$aws_region"',g' iam/iam.yaml
 sed -i -e 's,aws_region,'"$aws_region"',g' iam/deploy
+sed -i -e 's,aws_region,'"$aws_region"',g' addons/fluentd/fluentd-kubernetes-cloudwatch/fluentd.ds.yaml
 
 ##set key pair
 sed -i -e 's,key_name,'"$key_name"',g' kube-aws/cluster.yaml
