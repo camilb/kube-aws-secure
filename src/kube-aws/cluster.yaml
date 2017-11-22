@@ -84,7 +84,7 @@ etcd:
   - name: PrivateSubnetA
   - name: PrivateSubnetB
   - name: PrivateSubnetC
-  version: 3.2.9
+  version: 3.2.10
   snapshot:
     automated: true
   disasterRecovery:
@@ -107,7 +107,7 @@ subnets:
   id: "private_subnet_c"
 tlsCADurationDays: 3650
 tlsCertDurationDays: 365
-kubernetesVersion: v1.8.2
+kubernetesVersion: v1.8.4
 hyperkubeImage:
   repo: gcr.io/google-containers/hyperkube-amd64
   rktPullDocker: true
