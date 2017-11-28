@@ -114,7 +114,9 @@ hyperkubeImage:
 useCalico: true
 kubeResourcesAutosave:
   enabled: true
-kubeDashboardAdminPrivileges: false
+kubernetesDashboard:
+  adminPrivileges: true
+  insecureLogin: false
 cloudWatchLogging:
  enabled: true
  retentionInDays: 7
