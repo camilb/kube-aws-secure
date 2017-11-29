@@ -1,4 +1,3 @@
-
 clusterName: demokube #has to be the same as KUBERNETES_CLUSTER var in vpc/deploy
 releaseChannel: stable
 apiEndpoints:
@@ -21,13 +20,17 @@ kmsKeyArn: "kms_key_arn"
 controller:
   createTimeout: PT60M
   instanceType: t2.medium
+  instanceTags:
+    Role: controller
+    SubRole: Development
+    Application: Kubernetes
   rootVolume:
     size: 30
     type: gp2
   autoScalingGroup:
     minSize: 1
-    maxSize: 3
-    rollingUpdateMinInstancesInService: 2
+    maxSize: 2
+    rollingUpdateMinInstancesInService: 1
   iam:
      role:
         name: "controllerMR"
@@ -37,6 +40,7 @@ controller:
   - name: PrivateSubnetC
   nodeLabels:
     kube-aws.coreos.com/role: controller
+
 worker:
   nodePools:
     - name: nodepool1
@@ -48,6 +52,10 @@ worker:
         role:
           name: "workerMR"
       instanceType: t2.medium
+      instanceTags:
+        Role: worker
+        SubRole: Development
+        Application: Kubernetes
       rootVolume:
         size: 30
         type: gp2
@@ -57,8 +65,8 @@ worker:
         maxBatchSize: 1
       autoScalingGroup:
         minSize: 1
-        maxSize: 3
-        rollingUpdateMinInstancesInService: 2
+        maxSize: 2
+        rollingUpdateMinInstancesInService: 1
       autoscaling:
         clusterAutoscaler:
           enabled: true
@@ -70,9 +78,14 @@ worker:
         enabled: true
       nodeLabels:
         kube-aws.coreos.com/role: worker
+
 etcd:
   count: 1
   instanceType: t2.medium
+  instanceTags:
+    Role: etcd
+    SubRole: Development
+    Application: Kubernetes
   rootVolume:
     size: 30
     type: gp2
@@ -129,25 +142,48 @@ addons:
   rescheduler:
     enabled: true
 experimental:
-   admission:
-     initializers:
-       enabled: true
-   authentication:
-   awsNodeLabels:
-     enabled: true
-   tlsBootstrap:
-     enabled: true
-   nodeAuthorizer:
-     enabled: true
-   nodeDrainer:
-     enabled: true
-     drainTimeout: 5
-   oidc:
-     enabled: true
-     issuerUrl: "https://accounts.google.com"
-     clientId: "kubernetes"
-     usernameClaim: "email"
-     groupsClaim: "groups"
+  admission:
+    podSecurityPolicy:
+      enabled: false
+    alwaysPullImages:
+      enabled: false
+    denyEscalatingExec:
+      enabled: false
+    initializers:
+      enabled: true
+  awsEnvironment:
+    enabled: false
+    environment:
+      CFNSTACK: '{ "Ref" : "AWS::StackId" }'
+  auditLog:
+    enabled: false
+    maxage: 30
+    logpath: /dev/stdout
+  authentication:
+    webhook:
+      enabled: false
+      cacheTTL: 1m0s
+      configBase64: base64-encoded-webhook-yaml
+  awsNodeLabels:
+    enabled: true
+  tlsBootstrap:
+    enabled: true
+  nodeAuthorizer:
+    enabled: true
+  ephemeralImageStorage:
+    enabled: false
+  kube2IamSupport:
+    enabled: false
+  nodeDrainer:
+    enabled: false
+    drainTimeout: 5
+  oidc:
+    enabled: false
+    issuerUrl: "https://accounts.google.com"
+    clientId: "kubernetes"
+    usernameClaim: "email"
+    groupsClaim: "groups"
+  disableSecurityGroupIngress: false
 stackTags:
   Name: "Kubernetes"
   Environment: "Development"
